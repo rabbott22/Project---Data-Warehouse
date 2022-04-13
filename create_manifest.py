@@ -4,6 +4,18 @@ import os
 import sys
 
 def main(argv):
+    """Create an AWS Redshift cluster copy manifest file
+
+    :Python script call takes a file name argument from command line
+        to use as the manifest file name $ python <script_name> <file_name>
+        e.g:
+            $ python create_manifest.py song.manifest
+    
+    :Connect to S3 data source specified in dwh.cfg file
+    :Convert collection of objects to a list for processing
+    :Write manifest file to current working directory
+    """
+    ## Parse configuratino file and assign key values to variables
     config = configparser.ConfigParser()
     config.read('dwh.cfg')
 
@@ -11,17 +23,20 @@ def main(argv):
     SECRET                 = config.get('AWS','SECRET')
     SONG_DATA              = config.get('S3', 'SONG_DATA')
 
+    ## Create S3 connection
     s3 = boto3.resource('s3',
                    region_name='us-east-1',
                    aws_access_key_id=KEY,
                    aws_secret_access_key=SECRET
                    )
 
+    ## Create S3 bucket resource
     sparkifyBucket = s3.Bucket('udacity-dend')
 
+    ## Acquire bucket collection and convert to list
     print("Aquiring collection of song data files.")
     bucket_list = sparkifyBucket.objects.filter(Prefix='song_data/')
-    print("Converting collection to list.")
+    print("Converting collection to list for processing.")
     song_files = list(bucket_list.all())
 
     end = len(song_files)
@@ -32,6 +47,7 @@ def main(argv):
 
     filename = argv[1]
     
+    ## Create manifest file, format list data and write to file
     with open(filename, 'w+') as man:
         man.write("{\n    \"entries\": [\n")
         song_files = iter(song_files)
@@ -40,14 +56,9 @@ def main(argv):
         for obj in song_files:
             #print(obj)
             man.write("        {\"url\":\"" + song_data + obj.key + "\", \"mandatory\":true},\n")
-        #print("File handle at: ", man.tell())
  
+    ## Remove extra comma from end and finish writing file
     with open(filename, 'rb+') as man:
-        #print("File handle now at: ", man.tell())
-        man.seek(-3, os.SEEK_END)
-        #print("File handle now at: ", man.tell())
-        #print(man.read(2).decode("utf-8"))
-        #print("File handle now at: ", man.tell())
         man.seek(-3, os.SEEK_END)
         man.truncate()
         man.write("\r\n    ]\r\n}".encode("utf-8"))
