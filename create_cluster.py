@@ -2,6 +2,8 @@ import pandas as pd
 import boto3
 import json
 import configparser
+import time
+import sys
 
 config = configparser.ConfigParser()
 config.read_file(open('dwh.cfg'))
@@ -9,78 +11,115 @@ config.read_file(open('dwh.cfg'))
 KEY                    = config.get('AWS','KEY')
 SECRET                 = config.get('AWS','SECRET')
 
-#DWH_CLUSTER_TYPE       = config.get("DWH","DWH_CLUSTER_TYPE")
-#DWH_NUM_NODES          = config.get("DWH","DWH_NUM_NODES")
-#DWH_NODE_TYPE          = config.get("DWH","DWH_NODE_TYPE")
+DWH_CLUSTER_TYPE       = config.get("DWH","DWH_CLUSTER_TYPE")
+DWH_NUM_NODES          = config.get("DWH","DWH_NUM_NODES")
+DWH_NODE_TYPE          = config.get("DWH","DWH_NODE_TYPE")
 
-#DWH_CLUSTER_IDENTIFIER = config.get("DWH","DWH_CLUSTER_IDENTIFIER")
-#DWH_DB                 = config.get("DWH","DWH_DB")
-#DWH_DB_USER            = config.get("DWH","DWH_DB_USER")
-#DWH_DB_PASSWORD        = config.get("DWH","DWH_DB_PASSWORD")
-#DWH_PORT               = config.get("DWH","DWH_PORT")
+DWH_CLUSTER_IDENTIFIER = config.get("DWH","DWH_CLUSTER_IDENTIFIER")
+DWH_DB_NAME            = config.get("DWH","DWH_DB_NAME")
+DWH_DB_USER            = config.get("DWH","DWH_DB_USER")
+DWH_DB_PASSWORD        = config.get("DWH","DWH_DB_PASSWORD")
+DWH_PORT               = config.get("DWH","DWH_PORT")
 
-#DWH_IAM_ROLE_NAME      = config.get("DWH", "DWH_IAM_ROLE_NAME")
+DWH_IAM_ROLE_NAME      = config.get("IAM_ROLE", "DWH_IAM_ROLE_NAME")
 
-#(DWH_DB_USER, DWH_DB_PASSWORD, DWH_DB)
+def create_iam_role (region=None):
+    ## Create a new Identity and Access Management (IAM) client
+    iam = boto3.client('iam',
+                    region_name=region,
+                    aws_access_key_id=KEY,
+                    aws_secret_access_key=SECRET
+                    )
 
-#pd.DataFrame({"Param":
-#                  ["DWH_CLUSTER_TYPE", "DWH_NUM_NODES", "DWH_NODE_TYPE", "DWH_CLUSTER_IDENTIFIER", "DWH_DB", "DWH_DB_USER", "DWH_DB_PASSWORD", "DWH_PORT", "DWH_IAM_ROLE_NAME"],
-#             "Value":
-#                  [DWH_CLUSTER_TYPE, DWH_NUM_NODES, DWH_NODE_TYPE, DWH_CLUSTER_IDENTIFIER, DWH_DB, DWH_DB_USER, DWH_DB_PASSWORD, DWH_PORT, DWH_IAM_ROLE_NAME]
-#             })
+    ## Create a new IAM role
+    if iam.get_role(RoleName=DWH_IAM_ROLE_NAME)['Role']['RoleName'] != DWH_IAM_ROLE_NAME:
+        try:
+            print("Creating a new IAM Role")
+            dwhRole = iam.create_role(
+                Path = '/',
+                RoleName = DWH_IAM_ROLE_NAME,
+                Description = "Provides Redshift ReadOnly access to S3 bucket.",
+                AssumeRolePolicyDocument = json.dumps(
+                    {'Statement':[{'Action': 'sts:AssumeRole',
+                                'Effect': 'Allow',
+                                'Principal':{'Service': 'redshift.amazonaws.com'}}],
+                    'Version': '2012-10-17'})
+                )
+        except Exception as e:
+            print(e)
 
-## Create S3 Client
-s3 = boto3.resource('s3',
-                   region_name='us-east-1',
-                   aws_access_key_id=KEY,
-                   aws_secret_access_key=SECRET
-                   )
+        ## Attach Policy to the newly created IAM Role
+        print('Attaching Policy')
+        iam.attach_role_policy(RoleName = DWH_IAM_ROLE_NAME,
+                            PolicyArn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+                            )['ResponseMetadata']['HTTPStatusCode']
 
-## Examine source data on S3 staging. 
-sampleDbBucket = s3.Bucket('udacity-dend')
+    ## Assign ARN Role to a variable
+    dwhRole = iam.get_role(RoleName=DWH_IAM_ROLE_NAME)
+    roleArn = dwhRole['Role']['Arn']
+    print("IAM Role ARN: ", roleArn)
+    return roleArn
 
-# Create a collection object from a list of Bucket objects filtered on the specified Prefix identifier,
-# then iterate through the list, print each item to screen and output to file.
-'''bll = open('bucket_list_log.txt', 'w')
-bll.write("bucket_name = " + sampleDbBucket.name + "\n")
-objs = sampleDbBucket.objects.filter(Prefix='log_data/')
-for obj in objs:
-    print(obj)
-    bll.write(obj.key + "\n")
+def create_cluster (roleArn, region=None):
+    ## Create Redshift client connection
+    redshift = boto3.client('redshift',
+                        region_name=region,
+                        aws_access_key_id=KEY,
+                        aws_secret_access_key=SECRET
+                        )
 
-bls = open('bucket_list_song.txt', 'w')
-bls.write("bucket_name = " + sampleDbBucket.name + "\n")
-objs = sampleDbBucket.objects.filter(Prefix='song_data/')
-for obj in objs:
-    print(obj)
-    bls.write(obj.key + "\n")
-'''
+    ## Create Redshift Cluster
+    print("Creating cluster in region " + region)
+    try:
+        response = redshift.create_cluster(        
+            # Add parameters for hardware
+            ClusterType = DWH_CLUSTER_TYPE,
+            NodeType = DWH_NODE_TYPE,
+            NumberOfNodes = int(DWH_NUM_NODES),
 
-## Create a new Identity and Access Management (IAM) client
-iam = boto3.client('iam',
-                   region_name='us-east-1',
-                   aws_access_key_id=KEY,
-                   aws_secret_access_key=SECRET
-                   )
-
-## Create a new IAM role
-try:
-    print("Creating a new IAM Role")
-    dwhRole = iam.create_role(
-        Path = '/',
-        RoleName = DWH_IAM_ROLE_NAME,
-        Description = "Provides Redshift ReadOnly access to S3 bucket.",
-        AssumeRolePolicyDocument = json.dumps(
-            {'Statement':[{'Action': 'sts:AssumeRole',
-                          'Effect': 'Allow',
-                          'Principal':{'Service': 'redshift.amazonaws.com'}}],
-             'Version': '2012-10-17'})
+            # Add parameters for identifiers & credentials
+            DBName = DWH_DB_NAME,
+            ClusterIdentifier = DWH_CLUSTER_IDENTIFIER,
+            MasterUsername = DWH_DB_USER,
+            MasterUserPassword = DWH_DB_PASSWORD,
+            
+            # Add parameter for role (to allow s3 access)
+            IamRoles = [roleArn]
         )
-except Exception as e:
-    print(e)
+        print(type(response))
+        print(response)
+    except Exception as e:
+        print(e)
+    return redshift
 
-## Attach Policy to the newly created IAM Role
-print('Attaching Policy')
-iam.attach_role_policy(RoleName = DWH_IAM_ROLE_NAME,
-                       PolicyArn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
-                      )['ResponseMetadata']['HTTPStatusCode']
+def prettyRedshiftProps(props):
+    pd.set_option('display.max_colwidth', None)
+    keysToShow = ["ClusterIdentifier", "NodeType", "ClusterStatus", "MasterUsername", "DBName", "Endpoint", "NumberOfNodes", 'VpcId']
+    x = [(k, v) for k,v in props.items() if k in keysToShow]
+    print("Number of keys = " + str(len(keysToShow)))
+    return pd.DataFrame(data=x, columns=["Key", "Value"])
+
+def main(argv):
+    roleArn = create_iam_role()
+    redshift = create_cluster(roleArn, argv[1])
+    #redshift = create_cluster(roleArn)
+
+    ## Describe the cluster to monitor for available status
+    #myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
+    #schedule.every(2).minutes.do(prettyRedshiftProps(myClusterProps))
+    #df = pd.DataFrame()
+    status = None
+    i = 1
+    while status != "available":
+        myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
+        df = prettyRedshiftProps(myClusterProps)
+        status = df.iloc[2]['Value']
+        print(str(i) + ". Cluster " + df.iloc[0]['Value'] + " status is " + status + ".")
+        time.sleep(120)
+        i = i + 1
+
+    print(df)
+    #print("Cluster " + df.iloc[0]['Value'] + " status is " + df.iloc[2]['Value'] + ".")
+
+if __name__ == "__main__":
+    main(sys.argv)

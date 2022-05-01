@@ -2,6 +2,7 @@ import time
 import boto3
 import pandas as pd
 import configparser
+import sys
 
 config = configparser.ConfigParser()
 config.read('dwh.cfg')
@@ -19,43 +20,46 @@ def prettyRedshiftProps(props):
     pd.set_option('display.max_colwidth', None)
     keysToShow = ["ClusterIdentifier", "NodeType", "ClusterStatus", "MasterUsername", "DBName", "Endpoint", "NumberOfNodes", 'VpcId']
     x = [(k, v) for k,v in props.items() if k in keysToShow]
-    print("Number of keys = " + str(keysToShow.count(8)))
+    print("Number of keys = " + str(len(keysToShow)))
     return pd.DataFrame(data=x, columns=["Key", "Value"])
 
 def delete_role(iam):
     iam.detach_role_policy(RoleName=DWH_IAM_ROLE_NAME, PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess")
     iam.delete_role(RoleName=DWH_IAM_ROLE_NAME)
 
-def main():
+def main(argv):
     ## Create Redshift client connection
     redshift = boto3.client('redshift',
-                        region_name='us-east-1',
+                        region_name=argv[1],
                         aws_access_key_id=KEY,
                         aws_secret_access_key=SECRET
                         )
     
     ## Create a new Identity and Access Management (IAM) client
     iam = boto3.client('iam',
-                    region_name=region,
+                    region_name=argv[1],
                     aws_access_key_id=KEY,
                     aws_secret_access_key=SECRET
                     )
 
     delete_cluster(redshift)
 
-    myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
-    df = prettyRedshiftProps(myClusterProps)
+    #df = prettyRedshiftProps(myClusterProps)
 
-    i = 0
-    while df.iloc[2]['Value'] == "deleting":
-        print(str(i) + ". Cluster " + df.iloc[0]['Value'] + " status is " + df.iloc[2]['Value'] + ".")
-        time.sleep(120)
+    status = "deleting"
+    i = 1
+    while status == "deleting":
+        myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
         df = prettyRedshiftProps(myClusterProps)
+        status = df.iloc[2]['Value']
+        print(str(i) + ". Cluster " + df.iloc[0]['Value'] + " status is " + status + ".")
+        time.sleep(120)
         i = i + 1
 
-    print("Cluster " + df.iloc[0]['Value'] + " status is " + df.iloc[2]['Value'] + ".")
+    #print("Cluster " + df.iloc[0]['Value'] + " status is " + df.iloc[2]['Value'] + ".")
+    print(df)
 
     delete_role(iam)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

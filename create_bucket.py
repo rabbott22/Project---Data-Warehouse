@@ -12,6 +12,12 @@ SECRET                 = config.get('AWS','SECRET')
 def create_bucket(bucket_name, region=None):
     """Create an S3 bucket in a specified region
 
+        $ python create_bucket <bucket_name> <region>
+
+        e.g.
+
+        $ python create_bucket.py bob-bucket-22 us-west-2
+
     If a region is not specified, the bucket is created in the S3 default
     region (us-east-1).
 
@@ -49,7 +55,7 @@ def main(argv):
     '''Take bucket name argument entered after script name on command line.
     Submit argument to create_bucket function.
     '''
-    create_bucket(argv[1])
+    create_bucket(argv[1], argv[2])
 
 if __name__ == "__main__":
     main(sys.argv)

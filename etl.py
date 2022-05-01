@@ -22,6 +22,7 @@ def load_staging_tables(cur, conn, schema):
     cur.execute("SET search_path TO " + schema + ";")
     for query in copy_table_queries:
         print(query)
+        print()
         cur.execute(query)
         conn.commit()
         conn.close()
@@ -54,13 +55,14 @@ def insert_tables(cur, conn, schema):
             time_dict = {}
             for index, label in enumerate(column_labels):
                 time_dict[label] = time_data[index]
-            time_df = pd.DataFrame.from_dict(time_dict)
+            time_df = pd.DataFrame.from_dict(time_dict).drop_duplicates(subset=['timestamp'])
 
             # Execute time_table_insert query to insert time data records into the database
             for index, row in time_df.iterrows():
                 #cur.execute(query, list(row))
                 time_data = StringIteratorIO(list(row))
             
+            cur.execute("SET search_path TO %s;", schema)
             cur.copy_from(time_data, 'dwh.time', sep=',', size=1024)
 
         elif i == 3:
