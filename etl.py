@@ -1,4 +1,5 @@
 import configparser
+from operator import concat
 import psycopg2
 import psycopg2.extras
 #import boto3
@@ -50,9 +51,13 @@ def insert_tables(cur, conn, schema):
             # end log
             # '''
             #cur.execute(query, artist_data)
-            print("Artist Table Load Start: " + str(datetime.datetime.now()))
+            start = datetime.datetime.now()
+            print("Artist Table Load Start: " + str(start))
             cur.execute(query)
-            print("Artist Table Load End: " + str(datetime.datetime.now()))
+            end = datetime.datetime.now()
+            print("Artist Table Load End: " + str(end))
+            elapsed = end - start
+            print("Artist Table Load Time: " + str(elapsed))
             
         elif i == 1:
             print(query)
@@ -78,198 +83,161 @@ def insert_tables(cur, conn, schema):
             # Break down datetime values into discrete time data records
             #time_data = (t.to_string(index=False), t.dt.hour, t.dt.day, t.dt.week, t.dt.month, t.dt.year, t.dt.weekday)
             #time_data = (t, t.dt.hour, t.dt.day, t.dt.isocalendar().week, t.dt.month, t.dt.year, t.dt.weekday)
-            time_data = (t, t.dt.hour, t.dt.day, t.dt.week, t.dt.month, t.dt.year, t.dt.weekday)
+            time_data = (t.to_dict(), t.dt.hour.to_dict(), t.dt.day.to_dict(), t.dt.week.to_dict(), t.dt.month.to_dict(), t.dt.year.to_dict(), t.dt.weekday.to_dict())
             print(type(time_data))
             #tl = open("time_data.log", "w", encoding="utf-8")
             #tl.write(str(time_data))
             #tl.close()
             column_labels = ("timestamp", "hour", "day", "week", "month", "year", "weekday")
             time_dict = {}
-            for index, label in enumerate(column_labels):
-                time_dict[label] = time_data[index].to_dict()
-            #print(time_dict.keys())
-            #print(type(time_dict['timestamp']))
-            #print(time_dict['timestamp'])
-            #td = time_dict['timestamp'].to_dict()
-            #print(type(td))
-            #print(td)
-            #tl = open("time_dict.log", "w", encoding="utf-8")
-            #tl.write(str(time_dict))
-            #tl.close()
+            time_list = []
+            j = 0
+            tl = open("time_list.log", "w", encoding="utf-8")
+            for key in time_data[j]:
+            #    for index, label in enumerate(column_labels):
+                tl.write("Key = " + str(key) + "\n")
+                for index, label in enumerate(column_labels):
+            #    time_dict[label] = time_data[index].to_dict()
+                    time_dict[label] = time_data[index][key]
+                    tl.write(label + " = " + str(time_data[index][key]) + "\n")
+                    tl.write("index = " + str(index) + "\n")
+                    #for key in time_dict[label]:
+                tl.write(str(time_dict) + "\n")
+                time_list.append(time_dict.copy())
+                j += 1
+                tl.write("i = " + str(j) + "\n")
+                #tl.write(str(time_list) + "\n")
+            tl.close()
 
-            insert_execute_values_iterator(cur, time_dict, 1000)
-            
-            #time_list = time_dict['timestamp'].tolist()
-            #print(type(time_list))
-            '''with open("time_dict.log", "w", encoding="utf-8") as tl:
-                for time in td:
-                    #tl.write(str(time) + "\n")
-                    tl.write(time)
-                    #print(time)
-            '''
-            '''for i in range(len(time_list)):
-                #print(type(time_list[i]))
-                #print(time_list[i])
-                time_list[i] = time_list[i].strftime("%Y-%m-%d %H:%M:%S.%f")
-                #time_dict[i] = value.strftime("%Y-%m-%d %H:%M:%S.%f")
-            
-            t_series = pd.Series(time_list)
-            time_dict['timestamp'] = t_series
-            #for item in time_dict.items():
-            #   print(item)
-            print(type(time_dict['timestamp']))
-            print(time_dict['timestamp'])
-            for key in time_dict.keys():
-                print(key)
-            print(type(time_dict['weekday']))
-            print(time_dict['weekday'])
-            '''
-            #print(type(time_dict[0]['timestamp']))
-            #time_df = pd.DataFrame.from_dict(time_dict, orient='index').drop_duplicates(subset=['timestamp'])
-            #time_df = pd.DataFrame.from_dict(time_dict).drop_duplicates(subset=['timestamp'])
-            #print(time_df.head())
-            '''print("Time Table Load Start: " + str(datetime.datetime.now()))
-            eng = create_engine("postgresql+psycopg2://{}:{}@{}:{}/{}".format(DWH_DB_USER, DWH_DB_PASSWORD, DWH_ENDPOINT, DWH_PORT, DWH_DB_NAME))
-            time_df.to_sql('dwh.time', eng, 'dwh', index=False, if_exists='append')
-            print("Time Table Load End: " + str(datetime.datetime.now()))
-            '''
-            '''
-            time_df = pd.DataFrame.from_dict(time_dict, orient='index')
-            print(time_df.head())
-            time_list = time_df.to_dict(orient='records')
-            print(time_list[0][0])
-            for ind, value in time_list[0].items():
-                print(type(ind))
-                print(ind)
-                print(type(value))
-                print(value)
-                time_list[0][ind] = value.strftime("%Y-%m-%d %H:%M:%S.%f")
-            '''
-            '''
-            #time_list = list(time_dict.items())
-            #for ind, row in enumerate(time_list):
-            #    time_list[ind]['timestamp'] = pd.to_pydatetime(time_list[ind]['timestamp'])
-            #time_list = [list(row) for row in time_df.itertuples(index=False)]
-            tll = len(time_list)
-            print("Time List length is: " + str(tll))
-            print(time_list)
-            print(time_list[0][1])
-            print(time_list[1][1])
-            print(time_list[6][1])
-            print(type(time_list))
-            print(type(time_list[0]))
-            print(type(time_list[1]))
-            print(type(time_list[2]))
-            print(type(time_list[3]))
-            print(type(time_list[4]))                        
-            print(type(time_list[5]))
-            print(type(time_list[6]))            
-            '''
-            #print(cur.mogrify(query, time_dict))
-            
-            #print("Time Table Load Start: " + str(datetime.datetime.now()))
-            #psycopg2.extras.execute_batch(cur, query, Iterator[time_dict[str, Any]], page_size = 1000)
-            #cur.executemany(query, time_dict)
-            #print("Time Table Load End: " + str(datetime.datetime.now()))
-            
-            '''
-            #Remove DOCSTRING comments to enable logging
-            # start log 
-            tf = open("time_record.log", "a")
-            for i, row in time_df.iterrows():
-                cur.execute(time_table_insert, list(row))
-                # continue log 
-                tf.write(strftime("%Y-%m-%d %H:%M:%S") + " " + time_table_insert + '\n')
-                new_td = [str(i) for i in list(row)]
-                tf.write(' '.join(new_td) + '\n')
-            tf.close()
-            # end log
+            tlc = open("time_list_complete.log", "w", encoding="utf-8")
+            tlc.write(str(time_list))
+            tlc.close()
 
-            print(time_df.head())
-            #for index, item in enumerate(time_dict):
-            #    while index < 2:
-             #       print(item)
-
-            # Execute time_table_insert query to insert time data records into the database
-            for index, row in time_df.iterrows():
-                cur.executemany  (query, list(row))
-                print(type(row))
-                print(row)
-            
-            
-            q = "SET search_path TO {};"
-            print("SCHEMA: " + schema)
-            print(cur.mogrify(q.format(schema)))
-            cur.execute(q.format(schema))
-            #cur.execute("SET search_path TO " + schema + ";")
-            print(type(time_data))
-            #print(time_data)
-            print(cur.mogrify(time_data, 'dwh.time', sep=',', size=1024))
-            cur.copy_from(time_data, 'dwh.time', sep=',', size=1024)
-            
-
+            insert_time_values_iterator(cur, time_list, 1000)
+                   
         elif i == 3:
-            print(query)
+            print(query[0] + "\n" + query[1] + "\n" + query[2])
             #user_data = ['userId', 'firstName', 'lastName', 'gender', 'level']
             #print(cur.mogrify(query, user_data))
             for q in query:
-                print(cur.mogrify(query))
-                cur.execute(query)
+                print(cur.mogrify(q))
+                cur.execute(q)
 
         elif i == 4:
             print(song_event_select)
             cur.execute(song_event_select)
+            #df = pd.DataFrame(cur.fetchall(), columns = ["artist", "length", "level", "location", "sessionId", "song", "ts", "userAgent", "userId"])
             df = pd.DataFrame(cur.fetchall())
-        
+            #song_select_vars = df.to_dict(orient="records")
+
+            #songplay_df = pd.DataFrame(columns= ["start_time", "user_id", "level", "song_id", "artist_id", "session_id", "location", "user_agent"])
+            
+            column_labels = ("start_time", "user_id", "level", "song_id", "artist_id", "session_id", "location", "user_agent")
+            sp_dict = {}
+            sp_list = []
+            #j = 0
+            spl = open("songplay_list.log", "w", encoding="utf-8")
             # insert songplay records
+            start = datetime.datetime.now()
+            spl.write("songplay List Creation Start: " + str(start) + "\n")
             for index, row in df.iterrows():   
                 # get songid and artistid from song and artist tables
-                cur.execute(song_select, (row.song, row.artist, row.length))
+                spl.write("\nIndex = " + str(index) + "\n")
+                spl.write(str(datetime.datetime.now()) + " : " + "Start song_select query" + "\n")
+                #tup = (row[5], row[0], row[1])
+                mogstr = str(cur.mogrify(song_select, (row[5], row[0], row[1])))
+                spl.write(mogstr)
+                #print(cur.mogrify(song_select, (row[5], row[0], row[1])))
+                cur.execute(song_select, (row[5], row[0], row[1]))
+                spl.write("\n" + str(datetime.datetime.now()) + " : " + "End song_select query" + "\n")
                 results = cur.fetchone()
+                '''
+                spl = open("songplay_list.log", "w", encoding="utf-8")
+                # insert songplay records
+                start = datetime.datetime.now()
+                spl.write("songplay List Creation Start: " + str(start) + "\n")
 
+                results = psycopg2.extras.execute_values(cur, song_select, ((
+                    song_select_var['start_time', 'user_id', 'level'],
+                ) for song_select_var in song_select_vars), page_size=1024, Fetch=True)
+                
+
+                #psycopg2.extras.execute_batch(cur, song_select, song_select_vars, page_size=1024)
+                '''
+                #spl.write("Results Count: " + str(len(results)) + " or " + str(cur.rowcount()) + "\n")
+           
                 if results:
                     songid, artistid = results
                 else:
                     songid, artistid = None, None
 
                 # insert songplay record
-                #songplay_data = StringIteratorIO(pd.to_datetime(row.ts, unit='ms'), row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
-                #cur.execute(query, songplay_data)
+                #songplay_data = [(pd.to_datetime(row[6], unit='ms').to_dict, row[8].to_dict, row[2].to_dict, songid, artistid, row[4].to_dict, row[3].to_dict, row[7].to_dict)]
+                sp_data = (pd.to_datetime(row[6], unit='ms'), row[8], row[2], songid, artistid, row[4], row[3], row[7])
+                #sp_dict = {"start_time" : pd.to_datetime(song_select_vars["ts"], unit='ms'), "user_id" : song_select_vars["userId"], "level" : song_select_vars["level"], "song_id" : songid, "artist_id" : artistid, "session_id" : song_select_vars["sessionId"], "location" : song_select_vars["location"], "user_agent" : song_select_vars["userAgent"]}
+
+                for index, label in enumerate(column_labels):
+                    sp_dict[label] = sp_data[index]
+                    spl.write(label + " = " + str(sp_data[index]) + "\n")
+                    spl.write("index = " + str(index) + "\n")
+
+                spl.write(str(sp_dict) + "\n")
+                sp_list.append(sp_dict.copy())
+
+            end = datetime.datetime.now()
+            spl.write("songplay List Creation End: " + str(end) + "\n")
+            elapsed = end - start
+            spl.write("songplay List Creation Time: " + str(elapsed))
+                
+            spl.close()
+
+            slc = open("songplay_list_complete.log", "w", encoding="utf-8")
+            slc.write(str(sp_list))
+            slc.close()
             
-            cur.copy_from(songplay_data, 'dwh.songplay', sep=',', size=1024)
-            '''
+            #print(cur.mogrify(query, songplay_data))
+            #cur.execute(query, songplay_data)
+            
+            #cur.copy_from(songplay_data, 'dwh.songplay', sep=',', size=1024)        
 
 @profile
-def insert_execute_values_iterator(
-    #connection,
+def insert_time_values_iterator(
     cursor,
     times: Iterator[Dict[str, Any]],
     page_size: int = 100,
 ) -> None:
-    #with cur as cursor:
-    #    create_staging_table(cursor)
     psycopg2.extras.execute_values(cursor, """
-    INSERT INTO dwh.dwh VALUES %s;
+    INSERT INTO dwh.time VALUES %s;
         """, ((
-            beer['id'],
-            beer['name'],
-            beer['tagline'],
-            parse_first_brewed(beer['first_brewed']),
-            beer['description'],
-            beer['image_url'],
-            beer['abv'],
-            beer['ibu'],
-            beer['target_fg'],
-            beer['target_og'],
-            beer['ebc'],
-            beer['srm'],
-            beer['ph'],
-            beer['attenuation_level'],
-            beer['brewers_tips'],
-            beer['contributed_by'],
-            beer['volume']['value'],
-        ) for beer in beers), page_size=page_size)
-
+            time['timestamp'],
+            time['hour'],
+            time['day'],
+            time['week'],
+            time['month'],
+            time['year'],
+            time['weekday'],
+        ) for time in times), page_size=page_size)
+'''
+@profile
+def insert_songplay_values_iterator(
+    #connection,
+    cursor,
+    songplays: Iterator[Dict[str, Any]],
+    page_size: int = 100,
+) -> None:
+    psycopg2.extras.execute_values(cursor, """
+    INSERT INTO dwh.songplay VALUES %s;
+        """, ((
+            plays['start_time'],
+            plays['user_id'],
+            plays['level'],
+            plays['song_id'],
+            plays['artist_id'],
+            plays['session_id'],
+            plays['location'],
+            plays['user_agent']
+        ) for plays in songplays), page_size=page_size)
+'''
 def main():
     config = configparser.ConfigParser()
     config.read('dwh.cfg')
