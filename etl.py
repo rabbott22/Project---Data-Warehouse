@@ -10,6 +10,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from typing import Iterator, Dict, Any
 from time_mem_reporter import profile
+from dateutil import parser
 
 
 config = configparser.ConfigParser()
@@ -38,18 +39,19 @@ def insert_tables(cur, conn, schema):
     cur.execute("SET search_path TO " + schema + ";")
     for i, query in enumerate(insert_table_queries):
         if i == 0:
+            '''
             #print(query)
             #artist_data = ['artist_id', 'artist_name', 'artist_location', 'artist_latitude', 'artist_longitude']
             #q = cur.mogrify(query, artist_data)
-            # '''Remove DOCSTRING comments to enable logging
+            # Remove DOCSTRING comments to enable logging
             # start log 
-            af = open("artist_record.log", "a")
-            af.write(strftime("%Y-%m-%d %H:%M:%S") + " " + str(query) + '\n')
+            #af = open("artist_record.log", "a")
+            #af.write(strftime("%Y-%m-%d %H:%M:%S") + " " + str(query) + '\n')
             #new_ad = [str(i) for i in artist_data]
             #af.write(' '.join(new_ad) + '\n')
-            af.close()
+            #af.close()
             # end log
-            # '''
+            
             #cur.execute(query, artist_data)
             start = datetime.datetime.now()
             print("Artist Table Load Start: " + str(start))
@@ -58,16 +60,18 @@ def insert_tables(cur, conn, schema):
             print("Artist Table Load End: " + str(end))
             elapsed = end - start
             print("Artist Table Load Time: " + str(elapsed))
-            
+            '''
         elif i == 1:
+            '''
             print(query)
             song_data = ['song_id', 'title', 'artist_id', 'year', 'duration']
             print(cur.mogrify(query, song_data))
             print("Song Table Load Start: " + str(datetime.datetime.now()))
             cur.execute(query, song_data)
             print("Song Table Load End: " + str(datetime.datetime.now()))
-
+            '''
         elif i == 2:
+            '''
             cur.execute("SET search_path TO stage;")
             print(time_event_select)
             cur.execute(time_event_select)
@@ -113,17 +117,19 @@ def insert_tables(cur, conn, schema):
             tlc.write(str(time_list))
             tlc.close()
 
-            insert_time_values_iterator(cur, time_list, 1000)
-                   
+            insert_time_values_iterator(cur, time_list, page_size=1000)
+            '''
         elif i == 3:
+            '''
             print(query[0] + "\n" + query[1] + "\n" + query[2])
             #user_data = ['userId', 'firstName', 'lastName', 'gender', 'level']
             #print(cur.mogrify(query, user_data))
             for q in query:
                 print(cur.mogrify(q))
                 cur.execute(q)
-
+            '''
         elif i == 4:
+            '''
             print(song_event_select)
             cur.execute(song_event_select)
             #df = pd.DataFrame(cur.fetchall(), columns = ["artist", "length", "level", "location", "sessionId", "song", "ts", "userAgent", "userId"])
@@ -151,19 +157,7 @@ def insert_tables(cur, conn, schema):
                 cur.execute(song_select, (row[5], row[0], row[1]))
                 spl.write("\n" + str(datetime.datetime.now()) + " : " + "End song_select query" + "\n")
                 results = cur.fetchone()
-                '''
-                spl = open("songplay_list.log", "w", encoding="utf-8")
-                # insert songplay records
-                start = datetime.datetime.now()
-                spl.write("songplay List Creation Start: " + str(start) + "\n")
 
-                results = psycopg2.extras.execute_values(cur, song_select, ((
-                    song_select_var['start_time', 'user_id', 'level'],
-                ) for song_select_var in song_select_vars), page_size=1024, Fetch=True)
-                
-
-                #psycopg2.extras.execute_batch(cur, song_select, song_select_vars, page_size=1024)
-                '''
                 #spl.write("Results Count: " + str(len(results)) + " or " + str(cur.rowcount()) + "\n")
            
                 if results:
@@ -194,7 +188,78 @@ def insert_tables(cur, conn, schema):
             slc = open("songplay_list_complete.log", "w", encoding="utf-8")
             slc.write(str(sp_list))
             slc.close()
+            '''
+            slc = open("songplay_list_complete.log", "r", encoding="utf-8")
+            #sp_list = slc.readline().strip("[]").replace("}, {", "}\n{").split("\n")
+            '''sp_list = slc.readline().strip("[]").replace("}, {", "}\n{")
+            slc.close()
+            sp_list = sp_list.splitlines()
+            print(sp_list)
+            print(type(sp_list))
+            '''
+            wlc = open("songplay_list_split.json", "r")
+            #wlc.writelines(sp_list)
+            import json
+            sp_dict = json.load(wlc)
+            wlc.close()
+            for index, item in enumerate(sp_dict['songplays']):
+                ts = item['start_time']
+                ts = ts.lstrip('Timestamp(').rstrip(')')
+                ts = parser.parse(ts)
+                ts = pd.Timestamp(ts)
+                sp_dict['songplays'][index]['start_time'] = ts
             
+            insert_songplay_values_iterator(cur, sp_dict['songplays'], page_size=1000)
+            
+            '''
+            ts = sp_dict['songplays'][0]['start_time']
+            print(ts)
+            print(type(ts))
+            ts = ts.lstrip('Timestamp(').rstrip(')')
+            print(ts)
+            from dateutil import parser
+            ts = parser.parse(ts)
+            print(ts)
+            print(type(ts))
+            ts = pd.Timestamp(ts)
+            print(ts)
+            print(type(ts))
+            sp_dict['songplays'][0]['start_time'] = ts
+            print(sp_dict['songplays'][0]['start_time'])
+            print(type(sp_dict['songplays'][0]['start_time']))
+            '''
+            #sp_dict_list = []
+            '''
+            for item in sp_dict_list('songplays'):
+                print(type(item))
+                #wlc.write(item + "\n")
+                #item = item.replace("\'", "\"").replace("\"\"", "\"")
+                #wlc.write(item + "\n")
+                print(item)
+
+                sp_dict_list.append(conv.copy())
+                print(type(sp_dict_list[0]))
+
+            new_list = []
+            for index, item in enumerate(sp_list):
+                new_str = eval
+                print(new_str)
+
+            #new_list.append(new_dict.copy())
+            #print(type(new_list[141]))
+            #print(type(new_list[142]))
+            #sp_list = sp_list[0].replace("}, {", "}\n{").split("\n")
+            #sp_list = list(sp_list[0].split("}, {"))
+            
+            for index, line in enumerate(sp_list):
+                sp_list[index] = dict(line[index])
+            isp = open("insert_songplay.log", "w", encoding="utf-8")
+            isp.write(str(type(sp_list)))
+            isp.write(str(type(sp_list[0])))
+            isp.write(str(sp_list[0][13639]['user_agent']))
+            isp.close()
+            '''         
+                 
             #print(cur.mogrify(query, songplay_data))
             #cur.execute(query, songplay_data)
             
@@ -217,16 +282,16 @@ def insert_time_values_iterator(
             time['year'],
             time['weekday'],
         ) for time in times), page_size=page_size)
-'''
+
 @profile
 def insert_songplay_values_iterator(
-    #connection,
     cursor,
     songplays: Iterator[Dict[str, Any]],
     page_size: int = 100,
 ) -> None:
+    
     psycopg2.extras.execute_values(cursor, """
-    INSERT INTO dwh.songplay VALUES %s;
+    INSERT INTO dwh.songplay (start_time, user_id, level, song_id, artist_id, session_id, location, user_agent) VALUES %s;
         """, ((
             plays['start_time'],
             plays['user_id'],
@@ -237,7 +302,23 @@ def insert_songplay_values_iterator(
             plays['location'],
             plays['user_agent']
         ) for plays in songplays), page_size=page_size)
-'''
+    '''
+    mogstr = str(cursor.mogrify("""
+    INSERT INTO dwh.songplay VALUES %s;
+        """, ((
+            index['start_time'],
+            index['user_id'],
+            index['level'],
+            index['song_id'],
+            index['artist_id'],
+            index['session_id'],
+            index['location'],
+            index['user_agent']
+        ) for index, plays in enumerate(songplays))))
+    isp = open("insert_songplay.log", "a")
+    isp.write(mogstr)
+    isp.close()'''
+
 def main():
     config = configparser.ConfigParser()
     config.read('dwh.cfg')
